@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  # Database
+  db:
+    image: postgres:15-alpine
+    container_name: tatamart_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: tatamart
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: tatamart_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Redis for caching & sessions
+  redis:
+    image: redis:alpine
+    container_name: tatamart_redis
+    restart: always
+    ports:
+      - "6379:6379"
+
+  # Elasticsearch
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.1
+    container_name: tatamart_elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+
+  # PHP Service
+  php-service:
+    build: ./php-services
+    container_name: tatamart_php
+    restart: always
+    ports:
+      - "8080:80"
+    volumes:
+      - ./php-services:/var/www/html
+
+  # Node Backend (Will be built later, initially commented out or using local dev)
+  # backend:
+  #   build: ./backend
+  #   container_name: tatamart_backend
+  #   restart: always
+  #   ports:
+  #     - "5000:5000"
+  #   environment:
+  #     - DATABASE_URL=postgresql://tatamart:password123@db:5432/tatamart_db
+  #     - REDIS_URL=redis://redis:6379
+  #     - ELASTICSEARCH_URL=http://elasticsearch:9200
+  #   depends_on:
+  #     - db
+  #     - redis
+  #     - elasticsearch
+
+  # Frontend (Will be built later)
+  # frontend:
+  #   build: ./frontend
+  #   container_name: tatamart_frontend
+  #   ports:
+  #     - "3000:3000"
+  #   depends_on:
+  #     - backend
+
+volumes:
+  postgres_data:
+  es_data:
