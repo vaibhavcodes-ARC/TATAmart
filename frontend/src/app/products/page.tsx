@@ -36,16 +36,38 @@ function ProductListContent() {
   const fetchProducts = async () => {
     setLoading(true);
     try {
-      // Connect to Elasticsearch Advanced Search
-      const response = await api.get('/products/search', {
-        params: {
-          q: q || undefined,
-          categoryId: niche !== 'ALL' ? niche : undefined,
-          minPrice: minPrice || undefined,
-          maxPrice: maxPrice || undefined,
+      // Connect to Elasticsearch Advanced Search with PostgreSQL fallback
+      try {
+        const response = await api.get('/products/search', {
+          params: {
+            q: q || undefined,
+            categoryId: niche !== 'ALL' ? niche : undefined,
+            minPrice: minPrice || undefined,
+            maxPrice: maxPrice || undefined,
+          }
+        });
+        if (response.data && response.data.products && response.data.products.length > 0) {
+          setProducts(response.data.products || []);
+          return;
         }
-      });
-      setProducts(response.data.products || []);
+      } catch (esErr) {
+        console.warn('Elasticsearch is unavailable, falling back to PostgreSQL', esErr);
+      }
+
+      // Fallback: Fetch directly from database
+      const dbResponse = await api.get('/products');
+      let filtered = dbResponse.data || [];
+      if (niche !== 'ALL') {
+        filtered = filtered.filter((p: any) => p.categoryId === niche);
+      }
+      if (q) {
+        filtered = filtered.filter(
+          (p: any) =>
+            p.title.toLowerCase().includes(q.toLowerCase()) ||
+            p.description.toLowerCase().includes(q.toLowerCase())
+        );
+      }
+      setProducts(filtered);
     } catch (error) {
       console.error('Error fetching products:', error);
     } finally {
@@ -124,9 +146,13 @@ function ProductListContent() {
                   id="select-filter-niche"
                 >
                   <option value="ALL">All Categories</option>
+                  <option value="computers">Computer and IT</option>
                   <option value="electronics">Electronics</option>
-                  <option value="computers">Computers & IT</option>
-                  <option value="mechanical">Mechanical</option>
+                  <option value="logistics">Logistics</option>
+                  <option value="daily_needs">Daily Needs</option>
+                  <option value="transport">Transport</option>
+                  <option value="decor_furniture">Decor and Furniture</option>
+                  <option value="apparel">Apparel(bulk)</option>
                 </select>
               </div>
 

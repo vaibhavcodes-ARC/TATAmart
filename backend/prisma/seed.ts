@@ -14,6 +14,10 @@ const esClient = new Client({
 
 async function main() {
   console.log('Clearing database tables...');
+  await prisma.cartItem.deleteMany({});
+  await prisma.cart.deleteMany({});
+  await prisma.orderItem.deleteMany({});
+  await prisma.order.deleteMany({});
   await prisma.inquiry.deleteMany({});
   await prisma.product.deleteMany({});
   await prisma.category.deleteMany({});
@@ -66,16 +70,32 @@ async function main() {
   });
 
   console.log('Seeding Categories...');
-  const catElectronics = await prisma.category.create({
-    data: { id: 'electronics', name: 'Electronics & Components' },
-  });
-
   const catComputers = await prisma.category.create({
-    data: { id: 'computers', name: 'Computers & IT Hardware' },
+    data: { id: 'computers', name: 'Computer and IT' },
   });
 
-  const catMechanical = await prisma.category.create({
-    data: { id: 'mechanical', name: 'Mechanical Parts & Components' },
+  const catElectronics = await prisma.category.create({
+    data: { id: 'electronics', name: 'Electronics' },
+  });
+
+  const catLogistics = await prisma.category.create({
+    data: { id: 'logistics', name: 'Logistics' },
+  });
+
+  const catDailyNeeds = await prisma.category.create({
+    data: { id: 'daily_needs', name: 'Daily Needs' },
+  });
+
+  const catTransport = await prisma.category.create({
+    data: { id: 'transport', name: 'Transport' },
+  });
+
+  const catDecorFurniture = await prisma.category.create({
+    data: { id: 'decor_furniture', name: 'Decor and Furniture' },
+  });
+
+  const catApparel = await prisma.category.create({
+    data: { id: 'apparel', name: 'Apparel(bulk)' },
   });
 
   console.log('Seeding Products...');
@@ -113,20 +133,84 @@ async function main() {
       images: ['https://images.unsplash.com/photo-1544256718-3bcf237f3974?w=600&auto=format&fit=crop'],
     },
     {
-      title: 'High Precision Stainless Steel Ball Bearings (6204-ZZ)',
-      description: 'Industrial deep groove high precision steel ball bearing, double shielded ZZ type, grease lubricated, supporting radial and axial loads with extremely low frictional torque.',
-      price: 85,
-      moq: 1000,
-      categoryId: catMechanical.id,
-      images: ['https://images.unsplash.com/photo-1530124560072-aae84ca4db0f?w=600&auto=format&fit=crop'],
+      title: 'Industrial Wooden Shipping Pallets (Heavy Duty)',
+      description: 'Standard size heavy-duty wooden shipping pallets for warehouse storage and global cargo logistics. Crafted from premium seasoned pine wood, load capacity up to 1.5 tons.',
+      price: 450,
+      moq: 200,
+      categoryId: catLogistics.id,
+      images: ['https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=600&auto=format&fit=crop'],
     },
     {
-      title: 'Custom Machined Aluminium Spur Gear (Module 2, 40T)',
-      description: 'Precision milled 6061-T6 alloy structural spur gear. 40 teeth, Module 2 pitch, bore size 15mm with keyway. Manufactured to ISO Class 8 accuracy with clear anodization.',
-      price: 750,
+      title: 'Heavy-Duty Industrial Stretch Wrap Film (Roll)',
+      description: 'High-tensile strength cast stretch film roll for securing pallet shipments. Superior puncture resistance, excellent cling property, and ultra-clear visibility for barcodes.',
+      price: 280,
       moq: 50,
-      categoryId: catMechanical.id,
-      images: ['https://images.unsplash.com/photo-1518156677180-95a2893f3e9f?w=600&auto=format&fit=crop'],
+      categoryId: catLogistics.id,
+      images: ['https://images.unsplash.com/photo-1530587191325-3db32d826c18?w=600&auto=format&fit=crop'],
+    },
+    {
+      title: 'Premium Industrial Biodegradable Hand Soap (20L Can)',
+      description: 'Bulk eco-friendly biodegradable liquid hand soap for factories, warehouses, and corporate facilities. Effectively removes grease, oils, and industrial grime while keeping hands soft.',
+      price: 1200,
+      moq: 10,
+      categoryId: catDailyNeeds.id,
+      images: ['https://images.unsplash.com/photo-1608248597279-f99d160bfcbc?w=600&auto=format&fit=crop'],
+    },
+    {
+      title: 'Single-Use Nitrile Protective Gloves (Box of 100)',
+      description: 'Powder-free, medical-grade nitrile examination and protective gloves. High tactile sensitivity, excellent puncture resistance, textured fingertips, and latex-free composition.',
+      price: 450,
+      moq: 100,
+      categoryId: catDailyNeeds.id,
+      images: ['https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=600&auto=format&fit=crop'],
+    },
+    {
+      title: 'Electric Utility Cargo Tricycle (Heavy-Duty)',
+      description: 'Zero-emission high-payload electric cargo vehicle for inner-city industrial transport. 1000W motor, heavy duty suspension, dual braking, and cargo loading bed up to 500kg.',
+      price: 85000,
+      moq: 1,
+      categoryId: catTransport.id,
+      images: ['https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=600&auto=format&fit=crop'],
+    },
+    {
+      title: 'Hydraulic Lift Pallet Jack (2.5 Ton Capacity)',
+      description: 'Professional-grade manual hydraulic pallet truck for warehouse transport. 2500kg lifting capacity, reinforced steel chassis, leakproof pump, and smooth polyurethane wheels.',
+      price: 14500,
+      moq: 5,
+      categoryId: catTransport.id,
+      images: ['https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=600&auto=format&fit=crop'],
+    },
+    {
+      title: 'Ergonomic Orthopedic Mesh Office Chair',
+      description: 'Premium ergonomic office chair with breathable high-elastic mesh back, adjustable 3D armrests, dynamic lumbar support, and heavy-duty gas lift for commercial facilities.',
+      price: 6500,
+      moq: 20,
+      categoryId: catDecorFurniture.id,
+      images: ['https://images.unsplash.com/photo-1505797149-43b0069ec26b?w=600&auto=format&fit=crop'],
+    },
+    {
+      title: 'Modular Wooden Meeting Room Conference Table',
+      description: 'Elegant commercial-grade conference table made from high-density engineered wood with a melamine finish. Built-in wire management ports and seating capacity of up to 10 persons.',
+      price: 45000,
+      moq: 2,
+      categoryId: catDecorFurniture.id,
+      images: ['https://images.unsplash.com/photo-1544027993-37dbfe43562a?w=600&auto=format&fit=crop'],
+    },
+    {
+      title: '100% Pure Cotton Blank Unisex T-Shirts (Bulk Pack of 50)',
+      description: 'Premium blank combed cotton crew neck t-shirts. 180 GSM bio-washed pre-shrunk fabric. Perfect for corporate branding, printing, uniforms, or wholesale distribution.',
+      price: 4500,
+      moq: 10,
+      categoryId: catApparel.id,
+      images: ['https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=600&auto=format&fit=crop'],
+    },
+    {
+      title: 'Reflective Safety High-Visibility Vest (Bulk Pack of 100)',
+      description: 'Premium lightweight neon mesh reflective safety vests with high-reflectivity strips. Meets industrial safety standards. Perfect for construction sites, logistics, and roadways.',
+      price: 8500,
+      moq: 5,
+      categoryId: catApparel.id,
+      images: ['https://images.unsplash.com/photo-1516216622439-d1bc1623c5c7?w=600&auto=format&fit=crop'],
     },
   ];
 

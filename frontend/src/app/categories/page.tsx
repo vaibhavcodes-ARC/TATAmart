@@ -3,37 +3,73 @@
 import React from 'react';
 import Header from '../../components/Header';
 import { motion } from 'framer-motion';
-import { Cpu, Laptop, Settings, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
+import { Laptop, Cpu, Package, ShoppingBag, Truck, Home, Shirt, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 
 export default function CategoriesPage() {
   const categoriesList = [
     {
-      id: 'electronics',
-      name: 'Electronics & Components',
-      description: 'High precision active and passive electronics components, semiconductors, prototype PCBs, and STM32 microcontrollers.',
-      icon: Cpu,
+      id: 'computers',
+      name: 'Computer and IT',
+      description: 'Enterprise rackmount servers, network routing hardware, bulk storage, and high-performance workstations.',
+      icon: Laptop,
       color: 'from-blue-600 to-indigo-500',
       shadow: 'shadow-blue-500/20',
-      subcategories: ['Semiconductors', 'PCBs & Prototyping', 'Sensors & Modules', 'Active Components']
-    },
-    {
-      id: 'computers',
-      name: 'Computers & IT Hardware',
-      description: 'Enterprise rackmount servers, network routing hardware, bulk storage, and multi-tenant IT hardware components.',
-      icon: Laptop,
-      color: 'from-indigo-600 to-purple-500',
-      shadow: 'shadow-indigo-500/20',
       subcategories: ['Enterprise Servers', 'Network Switch & Routers', 'Storage Units', 'Workstations']
     },
     {
-      id: 'mechanical',
-      name: 'Mechanical Parts & Components',
-      description: 'Heavy duty spur gears, high precision ball bearings, custom CNC milled parts, and mechanical structures.',
-      icon: Settings,
+      id: 'electronics',
+      name: 'Electronics',
+      description: 'High precision active and passive electronics components, semiconductors, prototype PCBs, and STM32 microcontrollers.',
+      icon: Cpu,
+      color: 'from-indigo-600 to-purple-500',
+      shadow: 'shadow-indigo-500/20',
+      subcategories: ['Semiconductors', 'PCBs & Prototyping', 'Sensors & Modules', 'Active Components']
+    },
+    {
+      id: 'logistics',
+      name: 'Logistics',
+      description: 'Industrial wooden shipping pallets, durable stretch wrap film rolls, and heavy-duty global cargo packing materials.',
+      icon: Package,
       color: 'from-violet-600 to-fuchsia-500',
       shadow: 'shadow-violet-500/20',
-      subcategories: ['Gears & Transmissions', 'Steel Ball Bearings', 'Pneumatic Fittings', 'Custom CNC Parts']
+      subcategories: ['Wooden Pallets', 'Stretch Wrap Film', 'Cargo Packings', 'Storage Boxes']
+    },
+    {
+      id: 'daily_needs',
+      name: 'Daily Needs',
+      description: 'Premium eco-friendly biodegradable bulk hand soap, nitrile protective examination gloves, and hygiene essentials.',
+      icon: ShoppingBag,
+      color: 'from-fuchsia-600 to-pink-500',
+      shadow: 'shadow-pink-500/20',
+      subcategories: ['Bulk Soap', 'Nitrile Gloves', 'Sanitary Essentials', 'Cleaning Agents']
+    },
+    {
+      id: 'transport',
+      name: 'Transport',
+      description: 'Heavy-payload electric cargo tricycles, hydraulic manual lift pallet jacks, and industrial utility transit vehicles.',
+      icon: Truck,
+      color: 'from-emerald-600 to-teal-500',
+      shadow: 'shadow-teal-500/20',
+      subcategories: ['Cargo Tricycles', 'Pallet Jacks', 'Electric Vehicles', 'Utility Trolleys']
+    },
+    {
+      id: 'decor_furniture',
+      name: 'Decor and Furniture',
+      description: 'Orthopedic mesh office chairs, modular conference room tables, and commercial office interior furnishings.',
+      icon: Home,
+      color: 'from-amber-600 to-orange-500',
+      shadow: 'shadow-orange-500/20',
+      subcategories: ['Office Chairs', 'Conference Tables', 'Modular Desks', 'Lighting Systems']
+    },
+    {
+      id: 'apparel',
+      name: 'Apparel(bulk)',
+      description: 'Combed cotton unisex blank t-shirts for branding, industrial high-visibility reflective safety vests, and custom uniforms.',
+      icon: Shirt,
+      color: 'from-cyan-600 to-blue-500',
+      shadow: 'shadow-cyan-500/20',
+      subcategories: ['Blank T-Shirts', 'Reflective Vests', 'Factory Uniforms', 'Custom Hoodies']
     }
   ];
 
@@ -44,11 +80,11 @@ export default function CategoriesPage() {
       <main className="mx-auto max-w-7xl px-6 py-12 sm:px-8">
         <div className="text-center mb-12 relative overflow-hidden py-10 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200/40 dark:border-zinc-800/40 shadow-sm">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-indigo-500/5 blur-[80px] rounded-full pointer-events-none"></div>
-          <h1 className="font-hero text-3xl sm:text-4xl font-extrabold tracking-tight relative z-10">Industrial Product Catalog</h1>
+          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight relative z-10">Industrial Product Catalog</h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-2 max-w-xl mx-auto relative z-10 font-medium">Explore premium niche categories and source high-quality materials from verified global B2B industrial suppliers.</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {categoriesList.map((cat, idx) => (
             <motion.div
               key={cat.id}
@@ -61,7 +97,7 @@ export default function CategoriesPage() {
                 <div className={`inline-flex p-3 rounded-2xl bg-gradient-to-r ${cat.color} text-white shadow-lg ${cat.shadow} mb-5`}>
                   <cat.icon className="h-6 w-6" />
                 </div>
-                <h3 className="font-inter text-xl font-bold text-zinc-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                <h3 className="text-xl font-bold text-zinc-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                   {cat.name}
                 </h3>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2.5 leading-relaxed font-medium">
