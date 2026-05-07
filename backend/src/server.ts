@@ -7,6 +7,7 @@ import analyticsRoutes from './routes/analytics.routes';
 import cartRoutes from './routes/cart.routes';
 import orderRoutes from './routes/order.routes';
 import adminRoutes from './routes/admin.routes';
+import rfqRoutes from './routes/rfq.routes';
 import cors from 'cors';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -31,6 +32,7 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/rfqs', rfqRoutes);
 
 app.get('/', (req, res) => {
   res.send('TATAmart Backend API is running...');

@@ -27,6 +27,8 @@ model User {
   leads     Inquiry[] @relation("SellerLeads")
   cart      Cart?
   orders    Order[]
+  rfqs      Rfq[]         @relation("BuyerRfqs")
+  responses RfqResponse[] @relation("SellerResponses")
 }
 
 model Profile {
@@ -52,6 +54,7 @@ model Category {
   parent    Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
   children  Category[] @relation("CategoryHierarchy")
   products  Product[]
+  rfqs      Rfq[]
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 }
@@ -70,6 +73,8 @@ model Product {
   inquiries   Inquiry[]
   cartItems   CartItem[]
   orderItems  OrderItem[]
+  stock       Int      @default(100)
+  rfqs        Rfq[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -109,15 +114,17 @@ model CartItem {
 }
 
 model Order {
-  id          String      @id @default(uuid())
-  buyerId     String
-  buyer       User        @relation(fields: [buyerId], references: [id])
-  status      String      @default("PENDING") // PENDING, PROCESSING, COMPLETED, CANCELLED
-  total       Float
-  shippingAdd String
-  items       OrderItem[]
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id            String       @id @default(uuid())
+  buyerId       String
+  buyer         User         @relation(fields: [buyerId], references: [id])
+  status        String       @default("PENDING") // PENDING, PROCESSING, COMPLETED, CANCELLED
+  total         Float
+  shippingAdd   String
+  items         OrderItem[]
+  rfqResponseId String?
+  rfqResponse   RfqResponse? @relation(fields: [rfqResponseId], references: [id])
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 }
 
 model OrderItem {
@@ -130,4 +137,37 @@ model OrderItem {
   price     Float
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Rfq {
+  id          String        @id @default(uuid())
+  buyerId     String
+  buyer       User          @relation("BuyerRfqs", fields: [buyerId], references: [id])
+  title       String
+  description String
+  quantity    Int
+  targetPrice Float?
+  categoryId  String
+  category    Category      @relation(fields: [categoryId], references: [id])
+  productId   String?
+  product     Product?      @relation(fields: [productId], references: [id])
+  status      String        @default("PENDING") // PENDING, RESPONDED, CLOSED
+  responses   RfqResponse[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model RfqResponse {
+  id           String   @id @default(uuid())
+  rfqId        String
+  rfq          Rfq      @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  sellerId     String
+  seller       User     @relation("SellerResponses", fields: [sellerId], references: [id])
+  priceQuote   Float
+  leadTimeDays Int
+  notes        String?
+  status       String   @default("PENDING") // PENDING, ACCEPTED, REJECTED
+  orders       Order[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }

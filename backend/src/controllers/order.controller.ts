@@ -26,7 +26,7 @@ export const getOrders = async (req: AuthRequest, res: Response) => {
 export const createOrder = async (req: AuthRequest, res: Response) => {
   try {
     const buyerId = req.user!.id;
-    const { shippingAdd } = req.body;
+    const { shippingAdd, rfqResponseId } = req.body;
 
     const cart = await prismaAny.cart.findUnique({
       where: { buyerId },
@@ -52,13 +52,14 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
       };
     });
 
-    // Run order creation and cart clearing in a transaction
+    // Run order creation, stock deduction, and cart clearing in a transaction
     const result = await prismaAny.$transaction(async (tx: any) => {
       const order = await tx.order.create({
         data: {
           buyerId,
           total,
           shippingAdd: shippingAdd || 'Primary Enterprise Address',
+          rfqResponseId: rfqResponseId || null,
           items: {
             create: orderItemsData,
           },
@@ -69,6 +70,18 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
           },
         },
       });
+
+      // Deduct stock for each product in the order
+      for (const item of cart.items) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: {
+            stock: {
+              decrement: item.quantity,
+            },
+          },
+        });
+      }
 
       // Clear the cart
       await tx.cartItem.deleteMany({

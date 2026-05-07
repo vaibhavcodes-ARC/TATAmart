@@ -5,7 +5,25 @@ import Header from '../../../components/Header';
 import { api } from '../../../utils/api';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useRouter } from 'next/navigation';
-import { TrendingUp, MailOpen, Clock, AlertCircle, ShoppingCart, Percent, Tag, Plus, Trash2, Edit3, ArrowRight, ShieldCheck, Mail, Send, CheckCircle2 } from 'lucide-react';
+import {
+  TrendingUp,
+  MailOpen,
+  Clock,
+  AlertCircle,
+  ShoppingCart,
+  Percent,
+  Tag,
+  Plus,
+  Trash2,
+  Send,
+  CheckCircle2,
+  ShieldCheck,
+  Briefcase,
+  Truck,
+  Box,
+  Layers,
+  Input
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface AnalyticsData {
@@ -33,30 +51,41 @@ interface Product {
   description: string;
   price: number;
   moq: number;
+  stock: number;
   categoryId: string;
 }
 
-interface Inquiry {
+interface RfqLeads {
   id: string;
-  message: string;
+  title: string;
+  description: string;
+  quantity: number;
+  targetPrice: number | null;
   status: string;
   createdAt: string;
-  product: {
-    title: string;
-    price: number;
+  category: {
+    name: string;
   };
   buyer: {
     name: string;
+    email: string;
   };
+  responses: Array<{
+    id: string;
+    sellerId: string;
+    priceQuote: number;
+    status: string;
+  }>;
 }
 
 export default function SellerDashboard() {
   const router = useRouter();
   const { user, isAuthenticated } = useAuthStore();
-  const [activeTab, setActiveTab] = useState<'analytics' | 'catalog' | 'leads'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'catalog' | 'leads' | 'orders'>('analytics');
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
-  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
+  const [rfqLeads, setRfqLeads] = useState<RfqLeads[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Add Product Form State
@@ -65,24 +94,35 @@ export default function SellerDashboard() {
   const [prodDesc, setProdDesc] = useState('');
   const [prodPrice, setProdPrice] = useState('');
   const [prodMoq, setProdMoq] = useState('');
-  const [prodCategory, setProdCategory] = useState('electronics');
+  const [prodStock, setProdStock] = useState('100');
+  const [prodCategory, setProdCategory] = useState('');
+
+  // Bid Form States
+  const [biddingRfq, setBiddingRfq] = useState<RfqLeads | null>(null);
+  const [bidPrice, setBidPrice] = useState('');
+  const [bidLeadTime, setBidLeadTime] = useState('5');
+  const [bidNotes, setBidNotes] = useState('');
+  const [biddingSubmitting, setBiddingSubmitting] = useState(false);
 
   const fetchData = async () => {
     try {
-      const [analyticsRes, productsRes, inquiriesRes] = await Promise.all([
+      const [analyticsRes, productsRes, rfqLeadsRes, ordersRes] = await Promise.all([
         api.get('/analytics/seller'),
         api.get('/products'),
-        api.get('/products/inquiries/seller'),
+        api.get('/rfqs/leads'),
+        api.get('/orders') // Assigned B2B orders
       ]);
 
       setAnalytics(analyticsRes.data.data);
+      setRfqLeads(rfqLeadsRes.data);
+      setOrders(ordersRes.data);
+
       // Filter products only owned by this seller
       if (user) {
         setProducts(productsRes.data.filter((p: any) => p.sellerId === user.id));
       } else {
         setProducts(productsRes.data);
       }
-      setInquiries(inquiriesRes.data);
     } catch (error) {
       console.error('Error fetching seller command center data:', error);
     } finally {
@@ -106,12 +146,16 @@ export default function SellerDashboard() {
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const categoriesRes = await api.get('/categories');
+      const activeCategory = prodCategory || categoriesRes.data[0]?.id;
+
       const newProd = {
         title: prodTitle,
         description: prodDesc,
         price: Number(prodPrice),
         moq: Number(prodMoq),
-        categoryId: prodCategory,
+        stock: Number(prodStock),
+        categoryId: activeCategory,
         images: ['https://images.unsplash.com/photo-1518770660439-4636190af475?w=600&auto=format&fit=crop'],
       };
 
@@ -121,6 +165,7 @@ export default function SellerDashboard() {
       setProdDesc('');
       setProdPrice('');
       setProdMoq('');
+      setProdStock('100');
       fetchData(); // Refresh list
     } catch (error) {
       console.error('Failed to add product:', error);
@@ -136,17 +181,44 @@ export default function SellerDashboard() {
     }
   };
 
-  const handleUpdateInquiryStatus = async (inqId: string, newStatus: string) => {
+  const handleUpdateStock = async (prodId: string, newStock: number) => {
     try {
       // Optimistic update
-      setInquiries((prev) =>
-        prev.map((i) => (i.id === inqId ? { ...i, status: newStatus } : i))
+      setProducts((prev) =>
+        prev.map((p) => (p.id === prodId ? { ...p, stock: newStock } : p))
       );
-      await api.put(`/products/inquiries/${inqId}`, { status: newStatus });
-      fetchData(); // Refresh metrics
+      await api.put(`/products/${prodId}`, { stock: newStock });
     } catch (error) {
-      console.error('Failed to transition inquiry status:', error);
+      console.error('Failed to update stock:', error);
       fetchData();
+    }
+  };
+
+  const handlePlaceBid = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!biddingRfq) return;
+
+    try {
+      setBiddingSubmitting(true);
+      await api.post('/rfqs/respond', {
+        rfqId: biddingRfq.id,
+        priceQuote: parseFloat(bidPrice),
+        leadTimeDays: parseInt(bidLeadTime),
+        notes: bidNotes,
+      });
+
+      // Clear states
+      setBiddingRfq(null);
+      setBidPrice('');
+      setBidLeadTime('5');
+      setBidNotes('');
+
+      // Refresh
+      fetchData();
+    } catch (err) {
+      console.error('Error submitting bid:', err);
+    } finally {
+      setBiddingSubmitting(false);
     }
   };
 
@@ -162,28 +234,28 @@ export default function SellerDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50 font-monoenterprise">
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50 font-sans">
       <Header />
 
       <main className="mx-auto max-w-7xl px-6 py-12 sm:px-8">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-10 pb-6 border-b border-zinc-200/40 dark:border-zinc-800/40">
           <div>
-            <span className="text-xs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">Enterprise Portal</span>
-            <h1 className="text-3xl font-black tracking-tight mt-1 flex items-center gap-2">
-              <span>Seller Command Center</span>
+            <span className="text-xs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">Enterprise Control Panel</span>
+            <h1 className="text-3xl font-black tracking-tight mt-1 flex items-center gap-2 uppercase">
+              <span>Supplier Control Center</span>
               {user?.role === 'SELLER' && (
-                <span className="inline-flex items-center space-x-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-extrabold text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-900/30">
+                <span className="inline-flex items-center space-x-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-extrabold text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200/50">
                   <ShieldCheck className="h-3 w-3" />
-                  <span>Verified Supplier</span>
+                  <span>Verified Tata Supplier</span>
                 </span>
               )}
             </h1>
           </div>
 
-          <div className="flex space-x-3 mt-4 md:mt-0">
+          <div className="flex space-x-2.5 mt-4 md:mt-0 overflow-x-auto pb-1">
             <button
               onClick={() => setActiveTab('analytics')}
-              className={`py-2 px-4 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+              className={`py-2.5 px-4 rounded-xl text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap ${
                 activeTab === 'analytics'
                   ? 'bg-indigo-600 text-white shadow-md'
                   : 'bg-white dark:bg-zinc-900 border border-zinc-200/30 dark:border-zinc-800/30 text-zinc-500 hover:text-zinc-800'
@@ -193,23 +265,33 @@ export default function SellerDashboard() {
             </button>
             <button
               onClick={() => setActiveTab('catalog')}
-              className={`py-2 px-4 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+              className={`py-2.5 px-4 rounded-xl text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap ${
                 activeTab === 'catalog'
                   ? 'bg-indigo-600 text-white shadow-md'
                   : 'bg-white dark:bg-zinc-900 border border-zinc-200/30 dark:border-zinc-800/30 text-zinc-500 hover:text-zinc-800'
               }`}
             >
-              Manage Catalog
+              Inventory Catalog
             </button>
             <button
               onClick={() => setActiveTab('leads')}
-              className={`py-2 px-4 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+              className={`py-2.5 px-4 rounded-xl text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap ${
                 activeTab === 'leads'
                   ? 'bg-indigo-600 text-white shadow-md'
                   : 'bg-white dark:bg-zinc-900 border border-zinc-200/30 dark:border-zinc-800/30 text-zinc-500 hover:text-zinc-800'
               }`}
             >
-              Leads & RFQs ({inquiries.filter(i => i.status === 'PENDING').length} New)
+              B2B Leads Board ({rfqLeads.filter(r => r.status === 'PENDING').length} New)
+            </button>
+            <button
+              onClick={() => setActiveTab('orders')}
+              className={`py-2.5 px-4 rounded-xl text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap ${
+                activeTab === 'orders'
+                  ? 'bg-indigo-600 text-white shadow-md'
+                  : 'bg-white dark:bg-zinc-900 border border-zinc-200/30 dark:border-zinc-800/30 text-zinc-500 hover:text-zinc-800'
+              }`}
+            >
+              Procured Orders ({orders.length})
             </button>
           </div>
         </div>
@@ -221,46 +303,46 @@ export default function SellerDashboard() {
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-6 mb-10">
               <div className="rounded-2xl bg-white p-6 shadow-sm border border-zinc-200/40 dark:bg-zinc-900 dark:border-zinc-800/40">
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Total Leads</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Procurement Leads</span>
                   <div className="h-8 w-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
                     <ShoppingCart className="h-4 w-4" />
                   </div>
                 </div>
                 <span className="text-3xl font-black">{analytics.totalLeads}</span>
-                <div className="text-[10px] text-zinc-400 mt-2 font-semibold">Total inquiries sent for your products</div>
+                <div className="text-[10px] text-zinc-400 mt-2 font-semibold">Total incoming Requests for Quote (RFQs)</div>
               </div>
 
               <div className="rounded-2xl bg-white p-6 shadow-sm border border-zinc-200/40 dark:bg-zinc-900 dark:border-zinc-800/40">
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Response Rate</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Quotation Bid Rate</span>
                   <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
                     <Percent className="h-4 w-4" />
                   </div>
                 </div>
                 <span className="text-3xl font-black">{analytics.responseRate}%</span>
-                <div className="text-[10px] text-zinc-400 mt-2 font-semibold">Leads with REPLIED or CLOSED state</div>
+                <div className="text-[10px] text-zinc-400 mt-2 font-semibold">Percentage of RFQs responded with a quote</div>
               </div>
 
               <div className="rounded-2xl bg-white p-6 shadow-sm border border-zinc-200/40 dark:bg-zinc-900 dark:border-zinc-800/40">
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Pending RFQs</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Open Bids</span>
                   <div className="h-8 w-8 rounded-lg bg-amber-50 dark:bg-amber-950/50 flex items-center justify-center text-amber-600 dark:text-amber-400">
                     <Clock className="h-4 w-4" />
                   </div>
                 </div>
                 <span className="text-3xl font-black">{analytics.statusCounts.PENDING}</span>
-                <div className="text-[10px] text-zinc-400 mt-2 font-semibold">Leads currently waiting for a callback</div>
+                <div className="text-[10px] text-zinc-400 mt-2 font-semibold">RFQs currently awaiting quotes</div>
               </div>
 
               <div className="rounded-2xl bg-white p-6 shadow-sm border border-zinc-200/40 dark:bg-zinc-900 dark:border-zinc-800/40">
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Answered / Closed</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Active Catalog Items</span>
                   <div className="h-8 w-8 rounded-lg bg-blue-50 dark:bg-blue-950/50 flex items-center justify-center text-blue-600 dark:text-blue-400">
-                    <MailOpen className="h-4 w-4" />
+                    <Box className="h-4 w-4" />
                   </div>
                 </div>
-                <span className="text-3xl font-black">{analytics.statusCounts.REPLIED + analytics.statusCounts.CLOSED}</span>
-                <div className="text-[10px] text-zinc-400 mt-2 font-semibold">Resolved trade RFQs</div>
+                <span className="text-3xl font-black">{products.length}</span>
+                <div className="text-[10px] text-zinc-400 mt-2 font-semibold">Listed parts & industrial materials</div>
               </div>
             </div>
 
@@ -268,7 +350,7 @@ export default function SellerDashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* Top Inquired Products */}
               <div className="rounded-2xl bg-white p-6 shadow-sm border border-zinc-200/40 dark:bg-zinc-900 dark:border-zinc-800/40">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-zinc-400 mb-6">Top Inquired Products</h3>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-6">Top Inquired Industrial Assets</h3>
                 {analytics.topProducts.length === 0 ? (
                   <p className="text-xs text-zinc-400">No active product inquiries yet.</p>
                 ) : (
@@ -289,7 +371,7 @@ export default function SellerDashboard() {
               <div className="rounded-2xl bg-white p-6 shadow-sm border border-zinc-200/40 dark:bg-zinc-900 dark:border-zinc-800/40">
                 <div className="flex items-center space-x-2 mb-6">
                   <TrendingUp className="h-5 w-5 text-indigo-600" />
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-zinc-400">Monthly Inquiry Velocity</h3>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Monthly Procurement Velocity</h3>
                 </div>
                 {analytics.monthlyLeads.length === 0 ? (
                   <p className="text-xs text-zinc-400">No historical analytics recorded yet.</p>
@@ -314,14 +396,14 @@ export default function SellerDashboard() {
           </motion.div>
         )}
 
-        {/* Tab Content 2: Manage Catalog (CRUD) */}
+        {/* Tab Content 2: Catalog Inventory Stock Control */}
         {activeTab === 'catalog' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-            <div className="flex justify-between items-center pb-4">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-zinc-400">Your Product Inventory ({products.length})</h3>
+            <div className="flex justify-between items-center pb-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Your Product Inventory ({products.length})</h3>
               <button
                 onClick={() => setShowAddModal(true)}
-                className="inline-flex items-center space-x-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 py-2.5 px-4 text-xs font-bold text-white shadow-md shadow-indigo-600/15 transition-all"
+                className="inline-flex items-center space-x-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 py-2.5 px-4 text-xs font-bold text-white shadow-md transition-all"
               >
                 <Plus className="h-4 w-4" />
                 <span>Add Product</span>
@@ -334,8 +416,9 @@ export default function SellerDashboard() {
                   <thead>
                     <tr className="bg-zinc-50 dark:bg-zinc-950 text-[10px] font-bold uppercase tracking-wider text-zinc-400 border-b border-zinc-100 dark:border-zinc-800">
                       <th className="p-5">Product Details</th>
-                      <th className="p-5">Industrial Niche</th>
-                      <th className="p-5">Unit price</th>
+                      <th className="p-5">Niche Category</th>
+                      <th className="p-5">Unit Price</th>
+                      <th className="p-5">Available Stock</th>
                       <th className="p-5">MOQ</th>
                       <th className="p-5 text-right">Moderation Controls</th>
                     </tr>
@@ -343,7 +426,7 @@ export default function SellerDashboard() {
                   <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 text-xs font-semibold">
                     {products.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="p-8 text-center text-zinc-400">No active listings in your inventory. Add your first parts item above.</td>
+                        <td colSpan={6} className="p-8 text-center text-zinc-400">No active listings in your inventory. Add your first parts item above.</td>
                       </tr>
                     ) : (
                       products.map((p) => (
@@ -351,6 +434,17 @@ export default function SellerDashboard() {
                           <td className="p-5 font-bold text-zinc-900 dark:text-white">{p.title}</td>
                           <td className="p-5 uppercase text-[10px] font-bold text-indigo-500">{p.categoryId}</td>
                           <td className="p-5 font-bold">₹{p.price.toLocaleString()}</td>
+                          <td className="p-5">
+                            <div className="flex items-center space-x-2">
+                              <input
+                                type="number"
+                                value={p.stock}
+                                onChange={(e) => handleUpdateStock(p.id, parseInt(e.target.value) || 0)}
+                                className="w-16 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent py-1 px-2 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-indigo-500/30 text-center"
+                              />
+                              <span className="text-zinc-400">units</span>
+                            </div>
+                          </td>
                           <td className="p-5 font-bold">{p.moq} units</td>
                           <td className="p-5 text-right">
                             <button
@@ -370,85 +464,228 @@ export default function SellerDashboard() {
           </motion.div>
         )}
 
-        {/* Tab Content 3: Leads & RFQs */}
+        {/* Tab Content 3: Leads Board & Bidding */}
         {activeTab === 'leads' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-zinc-400">Incoming Buyer Procurement Requests</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Industrial Procurement Demands Pipeline</h3>
 
-            {inquiries.length === 0 ? (
+            {rfqLeads.length === 0 ? (
               <div className="rounded-2xl bg-white border border-zinc-200/40 p-12 text-center text-zinc-400 dark:bg-zinc-900 dark:border-zinc-800/40">
-                No inquiries submitted for your listed products yet.
+                No active buyer RFQ leads available to quote on currently.
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {inquiries.map((inq) => (
-                  <div
-                    key={inq.id}
-                    className="rounded-2xl border border-zinc-200/40 bg-white p-6 shadow-sm dark:bg-zinc-900 dark:border-zinc-800/40 flex flex-col justify-between"
-                  >
-                    <div>
-                      <div className="flex justify-between items-start mb-4 border-b border-zinc-100 dark:border-zinc-800 pb-3">
-                        <div>
-                          <span className="text-[10px] font-black text-indigo-500 tracking-wider">RFQ ID: #{inq.id.slice(0, 8)}</span>
-                          <h4 className="font-bold text-sm text-zinc-900 dark:text-white mt-0.5">{inq.product.title}</h4>
+                {rfqLeads.map((rfq) => {
+                  const hasResponded = rfq.responses && rfq.responses.length > 0;
+                  const myBid = hasResponded ? rfq.responses[0] : null;
+
+                  return (
+                    <div
+                      key={rfq.id}
+                      className="rounded-2xl border border-zinc-200/40 bg-white p-6 shadow-sm dark:bg-zinc-900 dark:border-zinc-800/40 flex flex-col justify-between"
+                    >
+                      <div>
+                        <div className="flex justify-between items-start mb-4 border-b border-zinc-100 dark:border-zinc-800 pb-3">
+                          <div>
+                            <span className="text-[10px] font-black text-indigo-500 tracking-wider">LEAD ID: #{rfq.id.slice(0, 8)}</span>
+                            <h4 className="font-bold text-sm text-zinc-900 dark:text-white mt-0.5">{rfq.title}</h4>
+                          </div>
+                          <span className={`inline-flex items-center space-x-1 py-1 px-2.5 rounded-lg text-[10px] font-bold ${
+                            rfq.status === 'PENDING'
+                              ? 'bg-amber-50 text-amber-600'
+                              : rfq.status === 'RESPONDED'
+                              ? 'bg-indigo-50 text-indigo-600'
+                              : 'bg-emerald-50 text-emerald-600'
+                          }`}>
+                            {rfq.status}
+                          </span>
                         </div>
-                        <span className={`inline-flex items-center space-x-1 py-1 px-2 rounded-lg text-[10px] font-bold ${
-                          inq.status === 'PENDING'
-                            ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/30'
-                            : inq.status === 'REPLIED'
-                            ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/30'
-                            : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30'
-                        }`}>
-                          {inq.status}
-                        </span>
+
+                        <div className="space-y-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                          <div className="flex justify-between">
+                            <span>Procurement Volume</span>
+                            <span className="font-bold text-zinc-800 dark:text-zinc-200">{rfq.quantity.toLocaleString()} units</span>
+                          </div>
+                          {rfq.targetPrice && (
+                            <div className="flex justify-between">
+                              <span>Target Rate</span>
+                              <span className="font-bold text-indigo-600">₹{rfq.targetPrice.toLocaleString()}/unit</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between">
+                            <span>Industrial Category</span>
+                            <span className="uppercase text-[10px] bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-md font-extrabold">{rfq.category.name}</span>
+                          </div>
+                        </div>
+
+                        <p className="text-xs text-zinc-500 bg-zinc-50 p-3.5 rounded-xl border border-zinc-100 dark:bg-zinc-950/50 dark:border-zinc-800/30 mt-4 leading-relaxed">
+                          "{rfq.description}"
+                        </p>
                       </div>
 
-                      <div className="space-y-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-                        <div className="flex justify-between">
-                          <span>Buyer Representative</span>
-                          <span className="font-bold text-zinc-800 dark:text-zinc-300">{inq.buyer.name}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Date Submitted</span>
-                          <span>{new Date(inq.createdAt).toLocaleDateString()}</span>
-                        </div>
-                      </div>
-
-                      <p className="text-xs text-zinc-500 bg-zinc-50 p-3 rounded-xl border border-zinc-100 dark:bg-zinc-950/50 dark:border-zinc-800/30 mt-4 leading-relaxed italic">
-                        "{inq.message}"
-                      </p>
-                    </div>
-
-                    <div className="mt-6 pt-4 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between gap-3">
-                      <span className="text-[10px] uppercase font-bold text-zinc-400">Transition RFQ State</span>
-                      <div className="flex space-x-2">
-                        {inq.status !== 'REPLIED' && (
-                          <button
-                            onClick={() => handleUpdateInquiryStatus(inq.id, 'REPLIED')}
-                            className="inline-flex items-center space-x-1 py-1 px-2.5 rounded-lg text-[10px] font-bold bg-blue-600 text-white hover:bg-blue-500 transition-colors"
-                          >
-                            <Send className="h-3 w-3" />
-                            <span>Mark Replied</span>
-                          </button>
+                      <div className="mt-6 pt-4 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between gap-3">
+                        {hasResponded ? (
+                          <div className="flex justify-between items-center w-full">
+                            <span className="text-xs text-zinc-400 font-bold flex items-center gap-1">
+                              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                              <span>Your Bid: ₹{myBid?.priceQuote.toLocaleString()}/unit</span>
+                            </span>
+                            <span className="text-[10px] uppercase font-bold text-zinc-400 bg-zinc-50 dark:bg-zinc-950 p-1.5 px-3 rounded-md">
+                              Status: {myBid?.status}
+                            </span>
+                          </div>
+                        ) : rfq.status !== 'CLOSED' ? (
+                          <>
+                            <span className="text-[10px] uppercase font-bold text-zinc-400">Active Procurement Lead</span>
+                            <button
+                              onClick={() => setBiddingRfq(rfq)}
+                              className="inline-flex items-center space-x-1 py-2 px-3.5 rounded-xl text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-500 transition-colors shadow-md"
+                            >
+                              <Send className="h-3.5 w-3.5" />
+                              <span>Submit Quotation</span>
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-xs font-bold text-zinc-400 w-full text-center py-2 bg-zinc-50 dark:bg-zinc-950 rounded-xl">Bid Closed</span>
                         )}
-                        {inq.status !== 'CLOSED' && (
-                          <button
-                            onClick={() => handleUpdateInquiryStatus(inq.id, 'CLOSED')}
-                            className="inline-flex items-center space-x-1 py-1 px-2.5 rounded-lg text-[10px] font-bold bg-emerald-600 text-white hover:bg-emerald-500 transition-colors"
-                          >
-                            <CheckCircle2 className="h-3 w-3" />
-                            <span>Close Deal</span>
-                          </button>
-                        )}
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {/* Tab Content 4: Procured Orders */}
+        {activeTab === 'orders' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400 font-monoenterprise">B2B Assigned Orders Log</h3>
+
+            {orders.length === 0 ? (
+              <div className="rounded-2xl bg-white border border-zinc-200/40 p-12 text-center text-zinc-400 dark:bg-zinc-900 dark:border-zinc-800/40">
+                No procured orders assigned to your control center yet.
+              </div>
+            ) : (
+              <div className="rounded-2xl bg-white shadow-sm border border-zinc-200/40 dark:bg-zinc-900 dark:border-zinc-800/40 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-zinc-50 dark:bg-zinc-950 text-[10px] font-bold uppercase tracking-wider text-zinc-400 border-b border-zinc-100 dark:border-zinc-800">
+                        <th className="p-5">Order ID</th>
+                        <th className="p-5">Destination Address</th>
+                        <th className="p-5">Shipment Value</th>
+                        <th className="p-5">Status</th>
+                        <th className="p-5">Timestamp</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 text-xs font-semibold">
+                      {orders.map((ord) => (
+                        <tr key={ord.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-950/20 transition-all">
+                          <td className="p-5 font-bold text-indigo-600">#{ord.id.slice(0, 8)}</td>
+                          <td className="p-5 text-zinc-500 max-w-xs truncate">{ord.shippingAdd}</td>
+                          <td className="p-5 font-bold">₹{ord.total.toLocaleString()}</td>
+                          <td className="p-5">
+                            <span className="inline-flex items-center space-x-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 text-xs font-semibold text-emerald-600 border border-emerald-200/50">
+                              <Truck className="h-3.5 w-3.5" />
+                              <span>{ord.status}</span>
+                            </span>
+                          </td>
+                          <td className="p-5 text-zinc-400">{new Date(ord.createdAt).toLocaleDateString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </motion.div>
         )}
       </main>
+
+      {/* Submit Quote Modal */}
+      <AnimatePresence>
+        {biddingRfq && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setBiddingRfq(null)}
+              className="absolute inset-0 bg-zinc-950/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-zinc-200/40 dark:bg-zinc-900 dark:border-zinc-800/40 overflow-hidden animate-spring"
+            >
+              <h3 className="font-extrabold text-lg uppercase tracking-wider mb-2">Submit quotation pricing</h3>
+              <p className="text-xs text-zinc-400 mb-5">Submit a competitive quotation rate to procure the contract for Lead ID #{biddingRfq.id.slice(0, 8)}.</p>
+
+              <form onSubmit={handlePlaceBid} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-400 uppercase mb-1">Your Quote Rate (per unit)</label>
+                    <input
+                      type="number"
+                      required
+                      value={bidPrice}
+                      onChange={(e) => setBidPrice(e.target.value)}
+                      placeholder={biddingRfq.targetPrice?.toString() || 'e.g. 150'}
+                      className="w-full rounded-xl border border-zinc-200 bg-transparent py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-400 uppercase mb-1">Est. Delivery lead time (Days)</label>
+                    <input
+                      type="number"
+                      required
+                      min={1}
+                      value={bidLeadTime}
+                      onChange={(e) => setBidLeadTime(e.target.value)}
+                      placeholder="e.g. 5"
+                      className="w-full rounded-xl border border-zinc-200 bg-transparent py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-zinc-400 uppercase mb-1">Supplier Notes / Compliance Remarks</label>
+                  <textarea
+                    rows={3}
+                    value={bidNotes}
+                    onChange={(e) => setBidNotes(e.target.value)}
+                    placeholder="Provide details on parts authenticity, quality assurance, or specific payment terms."
+                    className="w-full rounded-xl border border-zinc-200 bg-transparent py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                </div>
+
+                <div className="flex justify-end space-x-3 pt-4 border-t border-zinc-200/30">
+                  <button
+                    type="button"
+                    onClick={() => setBiddingRfq(null)}
+                    className="py-2.5 px-4 rounded-xl text-xs font-bold text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={biddingSubmitting}
+                    className="rounded-xl bg-indigo-600 hover:bg-indigo-500 py-2.5 px-6 text-xs font-bold text-white shadow-md transition-all flex items-center justify-center"
+                  >
+                    {biddingSubmitting ? (
+                      <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <span>Place Competitive Quote</span>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Add Product Modal */}
       <AnimatePresence>
@@ -460,7 +697,7 @@ export default function SellerDashboard() {
               exit={{ scale: 0.95, opacity: 0 }}
               className="w-full max-w-lg bg-white rounded-3xl border border-zinc-200/40 dark:bg-zinc-900 dark:border-zinc-800 p-8 shadow-2xl overflow-hidden relative"
             >
-              <h3 className="text-lg font-black tracking-tight mb-6 pb-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center gap-2">
+              <h3 className="text-lg font-black tracking-tight mb-6 pb-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center gap-2 uppercase">
                 <Tag className="h-5 w-5 text-indigo-500" />
                 <span>List New Parts Item</span>
               </h3>
@@ -490,7 +727,7 @@ export default function SellerDashboard() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className="block text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-2">Unit Price (INR)</label>
                     <input
@@ -503,13 +740,24 @@ export default function SellerDashboard() {
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-2">Minimum Order Quantity</label>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-2">MOQ</label>
                     <input
                       type="number"
                       required
                       value={prodMoq}
                       onChange={(e) => setProdMoq(e.target.value)}
                       placeholder="e.g. 50"
+                      className="w-full rounded-xl border border-zinc-200 bg-transparent py-3 px-4 text-xs font-semibold outline-none focus:border-indigo-500 dark:border-zinc-800 placeholder-zinc-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-2">Initial Stock</label>
+                    <input
+                      type="number"
+                      required
+                      value={prodStock}
+                      onChange={(e) => setProdStock(e.target.value)}
+                      placeholder="e.g. 500"
                       className="w-full rounded-xl border border-zinc-200 bg-transparent py-3 px-4 text-xs font-semibold outline-none focus:border-indigo-500 dark:border-zinc-800 placeholder-zinc-500"
                     />
                   </div>
@@ -522,6 +770,7 @@ export default function SellerDashboard() {
                     onChange={(e) => setProdCategory(e.target.value)}
                     className="w-full rounded-xl border border-zinc-200 bg-transparent py-3 px-4 text-xs font-semibold outline-none focus:border-indigo-500 dark:border-zinc-800 cursor-pointer text-zinc-500"
                   >
+                    <option value="">Select Industrial Category</option>
                     <option value="electronics">Electronics & Components</option>
                     <option value="computers">Computers & IT Hardware</option>
                     <option value="mechanical">Mechanical Parts</option>
