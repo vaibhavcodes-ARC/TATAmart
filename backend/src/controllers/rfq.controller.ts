@@ -150,13 +150,13 @@ export const submitRfqResponse = async (req: AuthRequest, res: Response) => {
 // 5. BUYER selects preferred seller quotation
 export const selectRfqResponse = async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params; // RfqResponse ID
+    const id = req.params.id as string; // RfqResponse ID
     const buyerId = req.user!.id;
 
     const quote = await prisma.rfqResponse.findUnique({
       where: { id },
       include: { rfq: true },
-    });
+    }) as any;
 
     if (!quote) {
       return res.status(404).json({ message: 'Quotation not found' });
