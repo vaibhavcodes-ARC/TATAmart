@@ -21,8 +21,7 @@ import {
   Briefcase,
   Truck,
   Box,
-  Layers,
-  Input
+  Layers
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
