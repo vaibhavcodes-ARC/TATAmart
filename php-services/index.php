@@ -27,11 +27,11 @@ function loadEnv($path) {
 
 loadEnv(__DIR__ . '/../backend/.env');
 
-$dbHost = $_ENV['DB_HOST'] ?? '127.0.0.1';
-$dbPort = $_ENV['DB_PORT'] ?? '3306';
-$dbName = $_ENV['DB_NAME'] ?? 'tatamart_db';
-$dbUser = $_ENV['DB_USER'] ?? 'root';
-$dbPass = $_ENV['DB_PASS'] ?? '';
+$dbHost = 'db';
+$dbPort = '3306';
+$dbName = 'tatamart_db';
+$dbUser = 'tatamart';
+$dbPass = 'password123';
 $jwtSecret = $_ENV['JWT_SECRET'] ?? 'tatamart_super_secret_key_2026';
 
 // 2. Establish MariaDB Connection and Auto-Initialize Tables

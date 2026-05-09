@@ -1,19 +1,20 @@
 version: '3.8'
 
 services:
-  # Database
+  # Database (MariaDB)
   db:
-    image: postgres:15-alpine
-    container_name: tatamart_postgres
+    image: mariadb:10.6
+    container_name: tatamart_mariadb
     restart: always
     environment:
-      POSTGRES_USER: tatamart
-      POSTGRES_PASSWORD: password123
-      POSTGRES_DB: tatamart_db
+      MYSQL_ROOT_PASSWORD: password123
+      MYSQL_DATABASE: tatamart_db
+      MYSQL_USER: tatamart
+      MYSQL_PASSWORD: password123
     ports:
-      - "5433:5432"
+      - "3307:3306"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - mariadb_data:/var/lib/mysql
 
   # Redis for caching & sessions
   redis:
@@ -72,5 +73,5 @@ services:
   #     - backend
 
 volumes:
-  postgres_data:
+  mariadb_data:
   es_data:
