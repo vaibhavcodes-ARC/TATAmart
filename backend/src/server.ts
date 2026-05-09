@@ -40,5 +40,11 @@ app.get('/', (req, res) => {
 
 app.listen(port, async () => {
   console.log(`Server is running on port ${port}`);
-  await initializeElasticsearch();
+  try {
+    await initializeElasticsearch();
+  } catch (esErr) {
+    console.warn('[ELASTICSEARCH] Failed to initialize cluster, but backend server is successfully listening on port:', port);
+  }
+  // Keep event loop alive
+  setInterval(() => {}, 1000);
 });
