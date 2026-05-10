@@ -182,14 +182,14 @@ $requestUri = $_SERVER['REQUEST_URI'];
 $action = $_GET['action'] ?? '';
 
 // Simple URL path router fallback
-if (strpos($requestUri, '/api/auth/register') !== false) $action = 'register';
-elseif (strpos($requestUri, '/api/auth/login') !== false) $action = 'login';
-elseif (strpos($requestUri, '/api/products') !== false) $action = 'products';
-elseif (strpos($requestUri, '/api/categories') !== false) $action = 'categories';
-elseif (strpos($requestUri, '/api/rfqs') !== false) $action = 'rfqs';
-elseif (strpos($requestUri, '/api/orders') !== false) $action = 'orders';
-elseif (strpos($requestUri, '/api/analytics') !== false) $action = 'analytics';
-elseif (strpos($requestUri, '/api/seed') !== false) $action = 'seed';
+if (strpos($requestUri, '/auth/register') !== false) $action = 'register';
+elseif (strpos($requestUri, '/auth/login') !== false) $action = 'login';
+elseif (strpos($requestUri, '/products') !== false) $action = 'products';
+elseif (strpos($requestUri, '/categories') !== false) $action = 'categories';
+elseif (strpos($requestUri, '/rfqs') !== false) $action = 'rfqs';
+elseif (strpos($requestUri, '/orders') !== false) $action = 'orders';
+elseif (strpos($requestUri, '/analytics') !== false) $action = 'analytics';
+elseif (strpos($requestUri, '/seed') !== false) $action = 'seed';
 
 switch ($action) {
     case 'register':
